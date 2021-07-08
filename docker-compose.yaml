@@ -1,0 +1,6 @@
+version: '3.3'
+services:
+    spacyapi:
+        ports:
+            - '8080:80'
+        image: 'jgontrum/spacyapi:en_v2'
