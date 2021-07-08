@@ -1,0 +1,3 @@
+[submodule "fm"]
+	path = fm
+	url = https://github.com/salimane/flask-mvc
