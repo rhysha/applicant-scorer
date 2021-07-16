@@ -24,11 +24,15 @@
   "labels":{
     "ner":[
       " CACHE",
+      " DATABASE",
       " LANGUAGE",
+      " SCRIPT",
       "CACHE",
       "LANGUAGE",
       "LOC",
-      "PERSON"
+      "PERSON",
+      "SCRIPT",
+      "lANGUAGE"
     ]
   }
 }

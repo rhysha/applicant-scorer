@@ -1,4 +1,5 @@
 from __future__ import unicode_literals, print_function
+from flask import Flask, render_template, request, redirect, url_for
 from flask import Flask
 from flask import request
 import json
@@ -13,6 +14,22 @@ from tqdm import tqdm
 
 import pandas as pd
 nlpg = spacy.load('en_core_web_sm')
+from logging.config import dictConfig
+dictConfig({
+    'version': 1,
+    'formatters': {'default': {
+        'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+    }},
+    'handlers': {'wsgi': {
+        'class': 'logging.StreamHandler',
+        'stream': 'ext://flask.logging.wsgi_errors_stream',
+        'formatter': 'default'
+    }},
+    'root': {
+        'level': 'INFO',
+        'handlers': ['wsgi']
+    }
+})
 
 import csv
 #########################################
@@ -33,7 +50,7 @@ with open('dataset.csv') as csv_file:
 
 model = "ner"
 output_dir=Path("./ner")
-n_iter=100
+n_iter=3
 
 if model is not None:
     nlp = spacy.load(model)  
@@ -93,43 +110,66 @@ def hello_world():
 
     return "Hello"
 
+@app.route('/upload',methods=['POST'])
+def upload_file():
+    uploaded_file = request.files['file']
+    if uploaded_file.filename != '':
+        uploaded_file.save(uploaded_file.filename)
+
+    app.logger.info('%s logged in successfully', "HELLO")
+    print("HELLO")
+    return json.dumps(["OK"])
 
 @app.route('/parse')
 def parse_resume():
     from pyresparser import ResumeParser
     data = ResumeParser('/home/rhysha/applicant-scoring/resume.pdf').get_extracted_data()
-    print(data['skills'])
+    #print(data['skills'])
     skills = data['skills']
 
-    required_skills = request.args.get('required_still')
+    required_skills = request.args.get('required_skills').upper()
     doc = nlp(json.dumps(' '.join([str(elem) for elem in skills])).upper())
-    print(doc)
+    #print(doc)
     rv = []
-    print('Entities', [rv.append((ent.text, ent.label_)) for ent in doc.ents])
-    return json.dumps(rv)
+    #print('Entities', [rv.append((ent.text, ent.label_)) for ent in doc.ents])
+    a=required_skills
+    b= json.dumps(' '.join([str(elem) for elem in skills])).upper()
+    print(a,b)
+    score = ner_similarity(a,b)
+    print(score)
+    doc = nlp(b)
+    rv.append([{"score":score}])
+    for ent in doc.ents:
+        text,label = ent.text, ent.label_
+        rv.append({text:label})
    
-    # title = request.args.get('title')
-    # url = "http://192.168.1.111:8081/ent"
-    # message_text = ' '.join([str(elem) for elem in skills])
-    # headers = {'content-type': 'application/json'}
-    # d = {'text': message_text, 'model': 'en'}
-
-    # response = requests.post(url, data=json.dumps(d), headers=headers)
-    # r = response.json()  
-    # print(r,message_text)
+    return json.dumps(rv)
     
+def ner_similarity(a,b):
+    nlpg = spacy.load('en_core_web_sm')
+    search_doc = nlpg(a)
+    main_doc = nlpg(b)
+
+    #search_doc = nlpg(a)
+    #main_doc = nlpg(b)
+
+    search_doc_no_stop_words = nlpg(' '.join([str(t) for t in search_doc if not t.is_stop]))
+    main_doc_no_stop_words = nlpg(' '.join([str(t) for t in main_doc if not t.is_stop]))
+    print(search_doc_no_stop_words.similarity(main_doc_no_stop_words))
+    return json.dumps([search_doc_no_stop_words.similarity(main_doc_no_stop_words)])    
 
 @app.route('/similarity')
 def similarity():
-    a = request.args.get('a')
-    b = request.args.get('b')
-    nlp = spacy.load('en_core_web_sm')
-    #search_doc = nlp("This was very strange argument between american and british person")
-    #main_doc = nlp("He was from Japan, but a true English gentleman in my eyes, and another one of the reasons as to why I liked going to school.")
+    a = request.args.get('a').upper()
+    b = request.args.get('b').upper()
+    nlpg = spacy.load('en_core_web_sm')
+    search_doc = nlpg(a)
+    main_doc = nlpg(b)
 
-    search_doc = nlp(a)
-    main_doc = nlp(b)
+    #search_doc = nlpg(a)
+    #main_doc = nlpg(b)
 
-    search_doc_no_stop_words = nlp(' '.join([str(t) for t in search_doc if not t.is_stop]))
-    main_doc_no_stop_words = nlp(' '.join([str(t) for t in main_doc if not t.is_stop]))
+    search_doc_no_stop_words = nlpg(' '.join([str(t) for t in search_doc if not t.is_stop]))
+    main_doc_no_stop_words = nlpg(' '.join([str(t) for t in main_doc if not t.is_stop]))
+    print(search_doc_no_stop_words.similarity(main_doc_no_stop_words))
     return json.dumps([search_doc_no_stop_words.similarity(main_doc_no_stop_words)])
